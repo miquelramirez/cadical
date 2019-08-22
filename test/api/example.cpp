@@ -1,8 +1,9 @@
-#include "../../src/cadical.hpp"
+#include <cadical/cadical.hpp>
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
 #include <cassert>
+#include <iostream>
 
 // This is the example from the header file
 
@@ -21,13 +22,19 @@ int main () {
 
  int res = solver->solve ();    // Solve instance.
  assert (res == 10);            // Check it is 'SATISFIABLE'.
+ if (res==10) {
+     std::cout << "SAT" << std::endl;
+ }
                                
  res = solver->val (TIE);       // Obtain assignment of 'TIE'.
  assert (res < 0);              // Check 'TIE' assigned to 'false'.
+ std::cout << (res < 0 ? "~" : "") << "TIE" << std::endl;
                                
  res = solver->val (SHIRT);     // Obtain assignment of 'SHIRT'.
  assert (res > 0);              // Check 'SHIRT' assigned to 'true'.
-                               
+ std::cout << (res < 0 ? "~" : "") << "SHIRT" << std::endl;
+
+
  // ------------------------------------------------------------------
  // Incrementally solve again under one assumption.
 

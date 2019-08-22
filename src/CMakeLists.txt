@@ -33,12 +33,12 @@ set(SOURCES analyze.cpp arena.cpp assume.cpp
         decide.cpp decompose.cpp deduplicate.cpp
         elim.cpp ema.cpp extend.cpp external.cpp
         file.cpp flags.cpp format.cpp gates.cpp
-        instantiate.cpp instantiate.cpp ipasir.cpp
+        instantiate.cpp internal.cpp ipasir.cpp
         limit.cpp logging.cpp lucky.cpp
         message.cpp minimize.cpp observer.hpp
         occs.cpp options.cpp parse.cpp phases.cpp
         probe.cpp probe.cpp proof.cpp propagate.cpp
-        queue.cpp random.cpp reduce.cpp rephase.cpp
+        queue.cpp random.cpp restart.cpp reduce.cpp rephase.cpp
         report.cpp resources.cpp resources.cpp restore.cpp
         score.cpp signal.cpp solution.cpp solver.cpp
         stats.cpp subsume.cpp terminal.cpp ternary.cpp
@@ -56,7 +56,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/" # source directory
         PATTERN "*.hpp" # select header files
         )
 
-add_library(cadical STATIC ${HEADERS} ${SOURCES})
+add_library(cadical SHARED ${HEADERS} ${SOURCES})
 
 set_target_properties (cadical PROPERTIES
         OUTPUT_NAME ${LIBNAME}

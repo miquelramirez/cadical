@@ -24,8 +24,8 @@ find_package(PkgConfig REQUIRED)
 
 configure_file(cadical.pc.in cadical.pc @ONLY)
 
-install(FILES ${PROJECT_BINARY_DIR}/build.hpp
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cadical)
+#install(FILES ${PROJECT_BINARY_DIR}/build.hpp
+#        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cadical)
 
 install(FILES ${CMAKE_BINARY_DIR}/cadical.pc
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
@@ -37,3 +37,4 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_subdirectory(src)
+add_subdirectory(test/api)
