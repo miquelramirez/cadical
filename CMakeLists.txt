@@ -38,3 +38,20 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_subdirectory(src)
 add_subdirectory(test/api)
+
+include(CMakePackageConfigHelpers)
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})
+set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
+configure_package_config_file(cadicalConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/cadicalConfig.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cadical/cmake
+        PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR
+        NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/cadicalConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cadicalConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/cadicalConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cadical/cmake
+        COMPONENT cadical)
