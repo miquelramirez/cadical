@@ -1,4 +1,4 @@
-#include <cadical/cadical.hpp>
+#include "../../src/cadical.hpp"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
