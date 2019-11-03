@@ -16,20 +16,18 @@ add_compile_options(
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-DDEBUG)
     add_compile_options(-pg)
-    SET(LIBNAME
-            cadical-debug)
+    SET(LIBNAME cadical-debug)
 elseif(CMAKE_BUILD_TYPE MATCHES Release)
     add_definitions(-DNDEBUG)
     add_compile_options(-O3)
-    SET(LIBNAME
-            cadical)
+    SET(LIBNAME cadical)
 endif()
 
 # libraries
 set(SOURCES analyze.cpp arena.cpp assume.cpp
         averages.cpp backtrack.cpp backward.cpp bins.cpp
         block.cpp ccadical.cpp checker.cpp clause.cpp
-        collect.cpp compact.cpp config.cpp cover.cpp
+        collect.cpp compact.cpp condition.cpp config.cpp cover.cpp
         decide.cpp decompose.cpp deduplicate.cpp
         elim.cpp ema.cpp extend.cpp external.cpp
         file.cpp flags.cpp format.cpp gates.cpp
