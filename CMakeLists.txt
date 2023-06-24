@@ -37,7 +37,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_subdirectory(src)
-add_subdirectory(test/api)
+add_subdirectory(test/api EXCLUDE_FROM_ALL)
 
 include(CMakePackageConfigHelpers)
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})

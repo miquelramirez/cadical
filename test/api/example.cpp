@@ -8,7 +8,7 @@
 
 int main () {
 
-  CaDiCaL::Solver *solver = new CaDiCaL::Solver;
+  auto *solver = new CaDiCaL::Solver;
 
   // ------------------------------------------------------------------
   // Encode Problem and check without assumptions.
