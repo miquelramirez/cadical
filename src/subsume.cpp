@@ -6,11 +6,11 @@ namespace CaDiCaL {
 
 // This file implements a global forward subsumption algorithm, which is run
 // frequently during search.  It works both on original (irredundant)
-// clauses and on 'sticky' learned clauses which are small enough or have a
-// small enough glue to be otherwise kept forever.  See 'opts.keepsize' and
-// 'opts.keeglue', e.g., a redundant clause is not extended and thus kept if
-// its size is smaller equal to 'opts.keepsize' or its glue is smaller equal
-// than 'opts.keepsize').
+// clauses and on 'sticky' learned clauses which are likely to be kept.
+// This is abstracted away in the 'likely_to_be_kept_clause' function, which
+// implicitly relies on 'opts.reducetier1lgue' (glucose level of clauses
+// which are not reduced) as well as dynamically determined size and glucose
+// level ('lim.keptglue' and 'lim.keptsize') of clauses kept in 'reduce'.
 //
 // Note, that 'forward' means that the clause from which the subsumption
 // check is started is checked for being subsumed by other (smaller or equal
@@ -22,19 +22,19 @@ namespace CaDiCaL {
 // subsumption algorithm in our SATeLite preprocessor in the context of
 // finding extremal sets in data mining and his suggested improvements.
 
-// Our original 'SATeLite' subsumption algorithm (and in MiniSAT and
-// descendants) is based on backward subsumption.  It uses the observation
-// that only the occurrence list of one literal of a clause has to traversed
-// in order to find all potential clauses which are subsumed by the
-// candidate.  Thus the literal with the smallest number of occurrences is
-// used.  However, that scheme requires to connect all literals of surviving
-// clauses, while forward algorithms only need to connect one literal. On
-// the other hand forward checking requires to traverse the occurrence lists
-// of all literals of the candidate clause to find subsuming clauses.
-// During connecting the single literal (similar to the one-watch scheme by
-// Lintao Zhang) one can connect a literal with a minimal number of
-// occurrence so far, which implicitly also reduces future occurrence list
-// traversal time.
+// Our original subsumption algorithm in 'Quantor' and 'SATeLite' (and in
+// MiniSAT and descendants) is based on backward subsumption.  It uses the
+// observation that only the occurrence list of one literal of a clause has
+// to be traversed in order to find all potential clauses which are subsumed
+// by the candidate.  Thus the literal with the smallest number of
+// occurrences is used.  However, that scheme requires to connect all
+// literals of surviving clauses, while forward algorithms only need to
+// connect one literal. On the other hand forward checking requires to
+// traverse the occurrence lists of all literals of the candidate clause to
+// find subsuming clauses.  During connecting the single literal (similar to
+// the one-watch scheme by Lintao Zhang) one can connect a literal with a
+// minimal number of occurrence so far, which implicitly also reduces future
+// occurrence list traversal time.
 
 // Also the actual subsumption check is cheaper since during backward
 // checking the short subsuming candidate clause is marked and all the
@@ -59,19 +59,22 @@ namespace CaDiCaL {
 
 bool Internal::subsuming () {
 
-  if (!opts.simplify) return false;
-  if (!opts.subsume && !opts.vivify) return false;
-  if (!preprocessing && !opts.inprocessing) return false;
-  if (preprocessing) assert (lim.preprocessing);
+  if (!opts.subsume && !opts.vivify)
+    return false;
+  if (!preprocessing && !opts.inprocessing)
+    return false;
+  if (preprocessing)
+    assert (lim.preprocessing);
 
   // Only perform global subsumption checking immediately after a clause
   // reduction happened where the overall allocated memory is small and we
   // got a limit on the number of kept clause in terms of size and glue.
   //
-  if (opts.reduce &&
-      stats.conflicts != last.reduce.conflicts) return false;
+  if (opts.reduce && stats.conflicts != last.reduce.conflicts)
+    return false;
 
-  if (stats.conflicts < lim.subsume) return false;
+  if (stats.conflicts < lim.subsume)
+    return false;
 
   return true;
 }
@@ -90,8 +93,7 @@ bool Internal::subsuming () {
 // strengthened and as a result the negation of the literal which can be
 // removed is returned.
 
-inline int Internal::subsume_check (Clause * subsuming, Clause * subsumed)
-{
+inline int Internal::subsume_check (Clause *subsuming, Clause *subsumed) {
 #ifdef NDEBUG
   (void) subsumed;
 #endif
@@ -104,7 +106,8 @@ inline int Internal::subsume_check (Clause * subsuming, Clause * subsumed)
   assert (subsuming->size <= subsumed->size);
 
   stats.subchecks++;
-  if (subsuming->size == 2) stats.subchecks2++;
+  if (subsuming->size == 2)
+    stats.subchecks2++;
 
   int flipped = 0, prev = 0;
   bool failed = false;
@@ -114,38 +117,49 @@ inline int Internal::subsume_check (Clause * subsuming, Clause * subsumed)
     *i = prev;
     prev = lit;
     const int tmp = marked (lit);
-    if (!tmp) failed = true;
-    else if (tmp > 0) continue;
-    else if (flipped) failed = true;
-    else flipped = lit;
+    if (!tmp)
+      failed = true;
+    else if (tmp > 0)
+      continue;
+    else if (flipped)
+      failed = true;
+    else
+      flipped = lit;
   }
   assert (prev);
   assert (!subsuming->literals[0]);
   subsuming->literals[0] = prev;
-  if (failed) return 0;
+  if (failed)
+    return 0;
 
-  if (!flipped) return INT_MIN;                   // subsumed!!
-  else if (!opts.subsumestr) return 0;
-  else return flipped;                            // strengthen!!
+  if (!flipped)
+    return INT_MIN; // subsumed!!
+  else if (!opts.subsumestr)
+    return 0;
+  else
+    return flipped; // strengthen!!
 }
 
 /*------------------------------------------------------------------------*/
 
 // Candidate clause 'subsumed' is subsumed by 'subsuming'.
 
-inline void
-Internal::subsume_clause (Clause * subsuming, Clause * subsumed) {
+inline void Internal::subsume_clause (Clause *subsuming, Clause *subsumed) {
   stats.subsumed++;
   assert (subsuming->size <= subsumed->size);
   LOG (subsumed, "subsumed");
-  if (subsumed->redundant) stats.subred++; else stats.subirr++;
+  if (subsumed->redundant)
+    stats.subred++;
+  else
+    stats.subirr++;
   mark_garbage (subsumed);
-  if (subsumed->redundant || !subsuming->redundant) return;
+  if (subsumed->redundant || !subsuming->redundant)
+    return;
   LOG ("turning redundant subsuming clause into irredundant clause");
   subsuming->redundant = false;
   stats.current.irredundant++;
   stats.added.irredundant++;
-  stats.irrbytes += subsuming->bytes ();
+  stats.irrlits += subsuming->size;
   assert (stats.current.redundant > 0);
   stats.current.redundant--;
   assert (stats.added.redundant > 0);
@@ -157,12 +171,14 @@ Internal::subsume_clause (Clause * subsuming, Clause * subsumed) {
 
 // Candidate clause 'c' is strengthened by removing 'lit'.
 
-void Internal::strengthen_clause (Clause * c, int lit) {
+void Internal::strengthen_clause (Clause *c, int lit) {
   stats.strengthened++;
   assert (c->size > 2);
   LOG (c, "removing %d in", lit);
-  if (proof) proof->strengthen_clause (c, lit);
-  if (!c->redundant) mark_removed (lit);
+  if (proof)
+    proof->strengthen_clause (c, lit);
+  if (!c->redundant)
+    mark_removed (lit);
   auto new_end = remove (c->begin (), c->end (), lit);
   assert (new_end + 1 == c->end ()), (void) new_end;
   (void) shrink_clause (c, c->size - 1);
@@ -179,19 +195,21 @@ void Internal::strengthen_clause (Clause * c, int lit) {
 // strengthened the result is negative.  Otherwise the candidate clause
 // can not be subsumed nor strengthened and zero is returned.
 
-inline int
-Internal::try_to_subsume_clause (Clause * c, vector<Clause *> & shrunken) {
+inline int Internal::try_to_subsume_clause (Clause *c,
+                                            vector<Clause *> &shrunken) {
 
   stats.subtried++;
   assert (!level);
   LOG (c, "trying to subsume");
 
-  mark (c);     // signed!
+  mark (c); // signed!
 
-  Clause * d = 0;
+  Clause dummy; // Communicate binary subsuming clause.
+
+  Clause *d = 0;
   int flipped = 0;
 
-  for (const auto & lit : *c) {
+  for (const auto &lit : *c) {
 
     // Only clauses which have a variable which has recently been added are
     // checked for being subsumed.  The idea is that all these newly added
@@ -199,7 +217,8 @@ Internal::try_to_subsume_clause (Clause * c, vector<Clause *> & shrunken) {
     // need to check occurrences of these variables.  The occurrence lists
     // of other literal do not have to be checked.
     //
-    if (!flags (lit).subsume) continue;
+    if (!flags (lit).subsume)
+      continue;
 
     for (int sign = -1; !d && sign <= 1; sign += 2) {
 
@@ -216,27 +235,31 @@ Internal::try_to_subsume_clause (Clause * c, vector<Clause *> & shrunken) {
       // removed in 'c', otherwise to 'INT_MIN' which is a non-valid
       // literal.
       //
-      for (const auto & other : bins (sign*lit) ) {
+      for (const auto &other : bins (sign * lit)) {
         const int tmp = marked (other);
-        if (!tmp) continue;
-        if (tmp < 0 && sign < 0) continue;
+        if (!tmp)
+          continue;
+        if (tmp < 0 && sign < 0)
+          continue;
         if (tmp < 0) {
-          if (sign < 0) continue;               // tautological resolvent
-          binary_subsuming.literals[0] = lit;
-          binary_subsuming.literals[1] = other;
+          if (sign < 0)
+            continue; // tautological resolvent
+          dummy.literals[0] = lit;
+          dummy.literals[1] = other;
           flipped = other;
         } else {
-          binary_subsuming.literals[0] = sign*lit;
-          binary_subsuming.literals[1] = other;
+          dummy.literals[0] = sign * lit;
+          dummy.literals[1] = other;
           flipped = (sign < 0) ? -lit : INT_MIN;
         }
-        assert (binary_subsuming.size == 2);
-        assert (!binary_subsuming.redundant);
-        d = &binary_subsuming;
+        dummy.redundant = false;
+        dummy.size = 2;
+        d = &dummy;
         break;
       }
 
-      if (d) break;
+      if (d)
+        break;
 
       // In this second loop we check for larger than binary clauses to
       // subsume or strengthen the candidate clause.   This is more costly,
@@ -244,18 +267,21 @@ Internal::try_to_subsume_clause (Clause * c, vector<Clause *> & shrunken) {
       // as above for communicating 'subsumption' or 'strengthening' to the
       // code after the loop is used.
       //
-      const Occs & os = occs (sign * lit);
-      for (const auto & e : os) {
-        assert (!e->garbage);                   // sanity check
-        if (e->garbage) continue;               // defensive: not needed
+      const Occs &os = occs (sign * lit);
+      for (const auto &e : os) {
+        assert (!e->garbage); // sanity check
+        if (e->garbage)
+          continue; // defensive: not needed
         flipped = subsume_check (e, c);
-        if (!flipped) continue;
-        d = e;                                  // leave also outer loop
+        if (!flipped)
+          continue;
+        d = e; // leave also outer loop
         break;
       }
     }
 
-    if (d) break;
+    if (d)
+      break;
   }
 
   unmark (c);
@@ -285,27 +311,32 @@ Internal::try_to_subsume_clause (Clause * c, vector<Clause *> & shrunken) {
 
 struct ClauseSize {
   size_t size;
-  Clause * clause;
-  ClauseSize (int s, Clause * c) : size (s), clause (c) { }
-  ClauseSize () { }
+  Clause *clause;
+  ClauseSize (int s, Clause *c) : size (s), clause (c) {}
+  ClauseSize () {}
 };
 
 struct smaller_clause_size_rank {
-  size_t operator () (const ClauseSize & a) { return a.size; }
+  typedef size_t Type;
+  Type operator() (const ClauseSize &a) { return a.size; }
 };
 
 /*------------------------------------------------------------------------*/
 
 struct subsume_less_noccs {
-  Internal * internal;
-  subsume_less_noccs (Internal * i) : internal (i) { }
-  bool operator () (int a, int b) {
+  Internal *internal;
+  subsume_less_noccs (Internal *i) : internal (i) {}
+  bool operator() (int a, int b) {
     const signed char u = internal->val (a), v = internal->val (b);
-    if (!u && v) return true;
-    if (u && !v) return false;
-    const int64_t m = internal->noccs (a), n = internal ->noccs (b);
-    if (m < n) return true;
-    if (m > n) return false;
+    if (!u && v)
+      return true;
+    if (u && !v)
+      return false;
+    const int64_t m = internal->noccs (a), n = internal->noccs (b);
+    if (m < n)
+      return true;
+    if (m > n)
+      return false;
     return abs (a) < abs (b);
   }
 };
@@ -322,9 +353,14 @@ struct subsume_less_noccs {
 
 bool Internal::subsume_round () {
 
-  if (!opts.subsume) return false;
-  if (unsat || terminating ()) return false;
-  if (!stats.current.redundant && !stats.current.irredundant) return false;
+  if (!opts.subsume)
+    return false;
+  if (unsat)
+    return false;
+  if (terminated_asynchronously ())
+    return false;
+  if (!stats.current.redundant && !stats.current.irredundant)
+    return false;
 
   START_SIMPLIFIER (subsume, SUBSUME);
   stats.subsumerounds++;
@@ -333,17 +369,19 @@ bool Internal::subsume_round () {
   if (opts.subsumelimited) {
     int64_t delta = stats.propagations.search;
     delta *= 1e-3 * opts.subsumereleff;
-    if (delta < opts.subsumemineff) delta = opts.subsumemineff;
-    if (delta > opts.subsumemaxeff) delta = opts.subsumemaxeff;
+    if (delta < opts.subsumemineff)
+      delta = opts.subsumemineff;
+    if (delta > opts.subsumemaxeff)
+      delta = opts.subsumemaxeff;
     delta = max (delta, (int64_t) 2l * active ());
 
     PHASE ("subsume-round", stats.subsumerounds,
-      "limit of %" PRId64 " subsumption checks", delta);
+           "limit of %" PRId64 " subsumption checks", delta);
 
     check_limit = stats.subchecks + delta;
   } else {
     PHASE ("subsume-round", stats.subsumerounds,
-      "unlimited subsumption checks");
+           "unlimited subsumption checks");
     check_limit = LONG_MAX;
   }
 
@@ -362,15 +400,20 @@ bool Internal::subsume_round () {
 
   for (auto c : clauses) {
 
-    if (c->garbage) continue;
-    if (c->size > opts.subsumeclslim) continue;
-    if (!likely_to_be_kept_clause (c)) continue;
+    if (c->garbage)
+      continue;
+    if (c->size > opts.subsumeclslim)
+      continue;
+    if (!likely_to_be_kept_clause (c))
+      continue;
 
     bool fixed = false;
     int subsume = 0;
-    for (const auto & lit : *c)
-      if (val (lit)) fixed = true;
-      else if (flags (lit).subsume) subsume++;
+    for (const auto &lit : *c)
+      if (val (lit))
+        fixed = true;
+      else if (flags (lit).subsume)
+        subsume++;
 
     // If the clause contains a root level assigned (fixed) literal we will
     // not work on it.  This simplifies the code substantially since we do
@@ -390,9 +433,10 @@ bool Internal::subsume_round () {
       continue;
     }
 
-    if (c->subsume) left_over_from_last_subsumption_round++;
+    if (c->subsume)
+      left_over_from_last_subsumption_round++;
     schedule.push_back (ClauseSize (c->size, c));
-    for (const auto & lit : *c)
+    for (const auto &lit : *c)
       noccs (lit)++;
   }
   shrink_vector (schedule);
@@ -410,8 +454,8 @@ bool Internal::subsume_round () {
   int64_t scheduled = schedule.size ();
   int64_t total = stats.current.irredundant + stats.current.redundant;
   PHASE ("subsume-round", stats.subsumerounds,
-    "scheduled %" PRId64 " clauses %.0f%% out of %" PRId64 " clauses",
-    scheduled, percent (scheduled, total), total);
+         "scheduled %" PRId64 " clauses %.0f%% out of %" PRId64 " clauses",
+         scheduled, percent (scheduled, total), total);
 #endif
 
   // Now go over the scheduled clauses in the order of increasing size and
@@ -427,12 +471,14 @@ bool Internal::subsume_round () {
   init_occs ();
   init_bins ();
 
-  for (const auto & s : schedule) {
+  for (const auto &s : schedule) {
 
-    if (terminating ()) break;
-    if (stats.subchecks >= check_limit) break;
+    if (terminated_asynchronously ())
+      break;
+    if (stats.subchecks >= check_limit)
+      break;
 
-    Clause * c = s.clause;
+    Clause *c = s.clause;
     assert (!c->garbage);
 
     checked++;
@@ -448,8 +494,12 @@ bool Internal::subsume_round () {
     if (c->size > 2 && c->subsume) {
       c->subsume = false;
       const int tmp = try_to_subsume_clause (c, shrunken);
-      if (tmp > 0) { subsumed++; continue; }
-      if (tmp < 0) strengthened++;
+      if (tmp > 0) {
+        subsumed++;
+        continue;
+      }
+      if (tmp < 0)
+        strengthened++;
     }
 
     // If not subsumed connect smallest occurring literal, where occurring
@@ -465,13 +515,16 @@ bool Internal::subsume_round () {
     bool subsume = true;
     bool binary = (c->size == 2 && !c->redundant);
 
-    for (const auto & lit : *c) {
+    for (const auto &lit : *c) {
 
-      if (!flags (lit).subsume) subsume = false;
+      if (!flags (lit).subsume)
+        subsume = false;
       const size_t size = binary ? bins (lit).size () : occs (lit).size ();
-      if (minlit && minsize <= size) continue;
+      if (minlit && minsize <= size)
+        continue;
       const int64_t tmp = noccs (lit);
-      if (minlit && minsize == size && tmp <= minoccs) continue;
+      if (minlit && minsize == size && tmp <= minoccs)
+        continue;
       minlit = lit, minsize = size, minoccs = tmp;
     }
 
@@ -480,16 +533,19 @@ bool Internal::subsume_round () {
     // can not serve to strengthen or subsume another clause, since all
     // shrunken or added clauses mark all their variables as 'subsume'.
     //
-    if (!subsume) continue;
+    if (!subsume)
+      continue;
 
     if (!binary) {
 
       // If smallest occurring literal occurs too often do not connect.
       //
-      if (minsize > (size_t) opts.subsumeocclim) continue;
+      if (minsize > (size_t) opts.subsumeocclim)
+        continue;
 
-      LOG (c, "watching %d with %zd current and total %" PRId64 " occurrences",
-        minlit, minsize, minoccs);
+      LOG (c,
+           "watching %d with %zd current and total %" PRId64 " occurrences",
+           minlit, minsize, minoccs);
 
       occs (minlit).push_back (c);
 
@@ -508,11 +564,13 @@ bool Internal::subsume_round () {
 
       // If smallest occurring literal occurs too often do not connect.
       //
-      if (minsize > (size_t) opts.subsumebinlim) continue;
+      if (minsize > (size_t) opts.subsumebinlim)
+        continue;
 
       LOG (c,
-        "watching %d with %zd current binary and total %" PRId64 " occurrences",
-        minlit, minsize, minoccs);
+           "watching %d with %zd current binary and total %" PRId64
+           " occurrences",
+           minlit, minsize, minoccs);
 
       const int minlit_pos = (c->literals[1] == minlit);
       const int other = c->literals[!minlit_pos];
@@ -521,20 +579,22 @@ bool Internal::subsume_round () {
   }
 
   PHASE ("subsume-round", stats.subsumerounds,
-    "subsumed %" PRId64 " and strengthened %" PRId64 " out of %" PRId64 " clauses %.0f%%",
-    subsumed, strengthened, scheduled,
-    percent (subsumed + strengthened, scheduled));
+         "subsumed %" PRId64 " and strengthened %" PRId64 " out of %" PRId64
+         " clauses %.0f%%",
+         subsumed, strengthened, scheduled,
+         percent (subsumed + strengthened, scheduled));
 
   const int64_t remain = schedule.size () - checked;
   const bool completed = !remain;
 
   if (completed)
     PHASE ("subsume-round", stats.subsumerounds,
-      "checked all %" PRId64 " scheduled clauses", checked);
+           "checked all %" PRId64 " scheduled clauses", checked);
   else
     PHASE ("subsume-round", stats.subsumerounds,
-      "checked %" PRId64 " clauses %.0f%% of scheduled (%zd remain)",
-      checked, percent (checked, scheduled), remain);
+           "checked %" PRId64 " clauses %.0f%% of scheduled (%" PRId64
+           " remain)",
+           checked, percent (checked, scheduled), remain);
 
   // Release occurrence lists and schedule.
   //
@@ -549,7 +609,7 @@ bool Internal::subsume_round () {
   if (completed)
     reset_subsume_bits ();
 
-  for (const auto & c : shrunken)
+  for (const auto &c : shrunken)
     mark_added (c);
   erase_vector (shrunken);
 
@@ -569,7 +629,8 @@ void Internal::subsume (bool update_limits) {
   if (!stats.current.redundant && !stats.current.irredundant)
     goto UPDATE_LIMITS;
 
-  if (unsat) return;
+  if (unsat)
+    return;
 
   backtrack ();
   if (!propagate ()) {
@@ -590,19 +651,22 @@ void Internal::subsume (bool update_limits) {
 
   // Schedule 'vivification' in 'subsume' as well as 'transitive reduction'.
   //
-  if (opts.vivify) vivify ();
-  if (opts.transred) transred ();
+  if (opts.vivify)
+    vivify ();
+  if (opts.transred)
+    transred ();
 
 UPDATE_LIMITS:
 
-  if (!update_limits) return;
+  if (!update_limits)
+    return;
 
   int64_t delta = scale (opts.subsumeint * (stats.subsumephases + 1));
   lim.subsume = stats.conflicts + delta;
 
   PHASE ("subsume-phase", stats.subsumephases,
-    "new subsume limit %" PRId64 " after %" PRId64 " conflicts",
-    lim.subsume, delta);
+         "new subsume limit %" PRId64 " after %" PRId64 " conflicts",
+         lim.subsume, delta);
 }
 
-}
+} // namespace CaDiCaL

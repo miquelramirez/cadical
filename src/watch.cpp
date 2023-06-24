@@ -4,15 +4,14 @@ namespace CaDiCaL {
 
 void Internal::init_watches () {
   assert (wtab.empty ());
-  while (wtab.size () < 2*vsize)
-    wtab.push_back (Watches ());
+  if (wtab.size () < 2 * vsize)
+    wtab.resize (2 * vsize, Watches ());
   LOG ("initialized watcher tables");
 }
 
 void Internal::clear_watches () {
-  for (int idx = 1; idx <= max_var; idx++)
-    for (int sign = -1; sign <= 1; sign += 2)
-      watches (sign * idx).clear ();
+  for (auto lit : lits)
+    watches (lit).clear ();
 }
 
 void Internal::reset_watches () {
@@ -32,25 +31,31 @@ void Internal::connect_watches (bool irredundant_only) {
 
   // First connect binary clauses.
   //
-  for (const auto & c : clauses) {
-    if (irredundant_only && c->redundant) continue;
-    if (c->garbage || c->size > 2) continue;
+  for (const auto &c : clauses) {
+    if (irredundant_only && c->redundant)
+      continue;
+    if (c->garbage || c->size > 2)
+      continue;
     watch_clause (c);
   }
 
   // Then connect non-binary clauses.
   //
-  for (const auto & c : clauses) {
-    if (irredundant_only && c->redundant) continue;
-    if (c->garbage || c->size == 2) continue;
+  for (const auto &c : clauses) {
+    if (irredundant_only && c->redundant)
+      continue;
+    if (c->garbage || c->size == 2)
+      continue;
     watch_clause (c);
     if (!level) {
       const int lit0 = c->literals[0];
       const int lit1 = c->literals[1];
       const signed char tmp0 = val (lit0);
       const signed char tmp1 = val (lit1);
-      if (tmp0 > 0) continue;
-      if (tmp1 > 0) continue;
+      if (tmp0 > 0)
+        continue;
+      if (tmp1 > 0)
+        continue;
       if (tmp0 < 0) {
         const size_t pos0 = var (lit0).trail;
         if (pos0 < propagated) {
@@ -75,38 +80,27 @@ void Internal::sort_watches () {
   assert (watching ());
   LOG ("sorting watches");
   Watches saved;
-  for (int idx = 1; idx <= max_var; idx++) {
-    for (int sign = -1; sign <= 1; sign += 2) {
+  for (auto lit : lits) {
+    Watches &ws = watches (lit);
 
-      const int lit = sign * idx;
-      Watches & ws = watches (lit);
+    const const_watch_iterator end = ws.end ();
+    watch_iterator j = ws.begin ();
+    const_watch_iterator i;
 
-      const const_watch_iterator end = ws.end ();
-      watch_iterator j = ws.begin ();
-      const_watch_iterator i;
+    assert (saved.empty ());
 
-      assert (saved.empty ());
-
-      for (i = j; i != end; i++) {
-        const Watch w = *i;
-        if (w.binary ()) *j++ = w;
-        else saved.push_back (w);
-      }
-      ws.resize (j - ws.begin ());
-
-      for (const auto & w : saved)
-        ws.push_back (w);
-
-      saved.clear ();
+    for (i = j; i != end; i++) {
+      const Watch w = *i;
+      if (w.binary ())
+        *j++ = w;
+      else
+        saved.push_back (w);
     }
+
+    std::copy (saved.cbegin (), saved.cend (), j);
+
+    saved.clear ();
   }
 }
 
-void Internal::disconnect_watches () {
-  LOG ("disconnecting watches");
-  for (int idx = 1; idx <= max_var; idx++)
-    for (int sign = -1; sign <= 1; sign += 2)
-      watches (sign * idx).clear ();
-}
-
-}
+} // namespace CaDiCaL

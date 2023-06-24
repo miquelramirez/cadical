@@ -1,8 +1,8 @@
 #ifndef _cadical_hpp_INCLUDED
 #define _cadical_hpp_INCLUDED
 
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
 
 namespace CaDiCaL {
@@ -133,25 +133,28 @@ namespace CaDiCaL {
 //               terminate (asynchronously)
 //      SOLVING  ------------------------->  UNKNOWN
 //
-// The main restriction to remember is that adding or assuming a literal
-// immediately destroys the satisfying assignment in the 'SATISFIED' state
-// and vice versa resets all assumptions in the 'UNSATISFIED' state.
+// The important behaviour to remember is that adding, assuming or
+// constraining a literal (immediately) destroys the satisfying assignment
+// in the 'SATISFIED' state and vice versa resets all assumptions in the
+// 'UNSATISFIED' state. This is exactly the behaviour required by the IPASIR
+// interface.
 //
-// Further the model can only be queried through 'val' in the 'SATISFIED'
-// state, while extracting failed assumptions with 'val' only in the
-// 'UNSATISFIED' state.  Solving can only be started in the 'UNKNOWN' or
-// 'CONFIGURING' state or after the previous call to 'solve' yields an
+// Furthermore, the model can only be queried through 'val' in the
+// 'SATISFIED' state, while extracting failed assumptions with 'failed' only
+// in the 'UNSATISFIED' state.  Solving can only be started in the 'UNKNOWN'
+// or 'CONFIGURING' state or after the previous call to 'solve' yielded an
 // 'UNKNOWN, 'SATISFIED' or 'UNSATISFIED' state.
 //
 // All literals have to be valid literals too, i.e., 32-bit integers
 // different from 'INT_MIN'.  If any of these requirements is violated the
-// solver aborts with an 'API contract violation' message.  If you do not
-// understand why the contract is violated you can run 'mobical' on the
-// failing API call trace.  Point the environment variable
+// solver aborts with an 'API contract violation' message.
+//
+// HINT: If you do not understand why a contract is violated you can run
+// 'mobical' on the failing API call trace.  Point the environment variable
 // 'CADICAL_API_TRACE' to the file where you want to save the trace during
-// execution of the library.  You might need for 'mobical' to use the option
-// '--do-not-enforce-contracts' though to force running into the same
-// contract violation.
+// execution of your program linking against the library.  You probably need
+// for 'mobical' to use the option '--do-not-enforce-contracts' though to
+// force running into the same contract violation.
 //
 // Additional API calls (like 'freeze' and 'melt') do not change the state
 // of the solver and are all described below.
@@ -160,27 +163,26 @@ namespace CaDiCaL {
 
 // States are represented by a bit-set in order to combine them.
 
-enum State
-{
-  INITIALIZING = 1,             // during initialization (invalid)
-  CONFIGURING  = 2,             // configure options (with 'set')
-  UNKNOWN      = 4,             // ready to call 'solve'
-  ADDING       = 8,             // adding clause literals (zero missing)
-  SOLVING      = 16,            // while solving (within 'solve')
-  SATISFIED    = 32,            // satisfiable allows 'val'
-  UNSATISFIED  = 64,            // unsatisfiable allows 'failed'
-  DELETING     = 128,           // during and after deletion (invalid)
+enum State {
+  INITIALIZING = 1, // during initialization (invalid)
+  CONFIGURING = 2,  // configure options (with 'set')
+  UNKNOWN = 4,      // ready to call 'solve'
+  ADDING = 8,       // adding clause literals (zero missing)
+  SOLVING = 16,     // while solving (within 'solve')
+  SATISFIED = 32,   // satisfiable allows 'val'
+  UNSATISFIED = 64, // unsatisfiable allows 'failed'
+  DELETING = 128,   // during and after deletion (invalid)
 
   // These combined states are used to check contracts.
 
-  READY   = CONFIGURING  | UNKNOWN | SATISFIED | UNSATISFIED,
-  VALID   = READY        | ADDING,
+  READY = CONFIGURING | UNKNOWN | SATISFIED | UNSATISFIED,
+  VALID = READY | ADDING,
   INVALID = INITIALIZING | DELETING
 };
 
 /*------------------------------------------------------------------------*/
 
-// Opaque classes declared in the same namespace needed in the API.
+// Opaque classes needed in the API and declared in the same namespace.
 
 class File;
 struct Internal;
@@ -190,6 +192,7 @@ struct External;
 
 // Forward declaration of call-back classes. See bottom of this file.
 
+class Learner;
 class Terminator;
 class ClauseIterator;
 class WitnessIterator;
@@ -199,7 +202,6 @@ class WitnessIterator;
 class Solver {
 
 public:
-
   // ====== BEGIN IPASIR ===================================================
 
   // This section implements the corresponding IPASIR functionality.
@@ -207,7 +209,7 @@ public:
   Solver ();
   ~Solver ();
 
-  static const char * signature ();     // name of this library
+  static const char *signature (); // name of this library
 
   // Core functionality as in the IPASIR incremental SAT solver interface.
   // (recall 'READY = CONFIGURING | UNKNOWN | SATISFIED | UNSATISFIED').
@@ -222,7 +224,9 @@ public:
   //
   void add (int lit);
 
-  // Assume valid non zero literal for next call to 'solve'.
+  // Assume valid non zero literal for next call to 'solve'.  These
+  // assumptions are reset after the call to 'solve' as well as after
+  // returning from 'simplify' and 'lookahead.
   //
   //   require (READY)
   //   ensure (UNKNOWN)
@@ -252,6 +256,41 @@ public:
   //
   int val (int lit);
 
+  // Try to flip the value of the given literal without falsifying the
+  // formula.  Returns 'true' if this was successful. Otherwise the model is
+  // not changed and 'false' is returned.  If a literal was eliminated or
+  // substituted flipping will fail on that literal and in particular the
+  // solver will not taint it nor restore any clauses.
+  //
+  // The 'flip' function can only flip the value of a variables not acting
+  // as witness on the reconstruction stack.
+  //
+  // As a side effect of calling this function first all assigned variables
+  // are propagated again without using blocking literal.  Thus the first
+  // call to this function after obtaining a model adds a substantial
+  // overhead.  Subsequent calls will not need to properly propagate again.
+  //
+  // Furthermore if the reconstruction stack is non-empty and has been
+  // traversed to reconstruct a full extended model for eliminated
+  // variables (and to satisfy removed blocked clauses), the values of these
+  // witness variables obtained via 'val' before become invalid. The user
+  // thus will need to call 'val' again after calling 'flip' which will
+  // trigger then a traversal of the reconstruction stack.
+  //
+  // So try to avoid mixing 'flip' and 'val' (for efficiency only).
+  //
+  //   require (SATISFIED)
+  //   ensure (SATISFIED)
+  //
+  bool flip (int lit);
+
+  // Same as 'flip' without actually flipping it.
+  //
+  //   require (SATISFIED)
+  //   ensure (SATISFIED)
+  //
+  bool flippable (int lit);
+
   // Determine whether the valid non-zero literal is in the core.
   // Returns 'true' if the literal is in the core and 'false' otherwise.
   // Note that the core does not have to be minimal.
@@ -261,38 +300,108 @@ public:
   //
   bool failed (int lit);
 
-  // Add call-back which is check regularly for termination.  There can only
-  // be one terminator be connected.  If a second (non-zero) one is added
+  // Add call-back which is checked regularly for termination.  There can
+  // only be one terminator connected.  If a second (non-zero) one is added
   // the first one is implicitly disconnected.
   //
   //   require (VALID)
   //   ensure (VALID)
   //
-  void connect_terminator (Terminator * terminator);
+  void connect_terminator (Terminator *terminator);
   void disconnect_terminator ();
+
+  // Add call-back which allows to export learned clauses.
+  //
+  //   require (VALID)
+  //   ensure (VALID)
+  //
+  void connect_learner (Learner *learner);
+  void disconnect_learner ();
 
   // ====== END IPASIR =====================================================
 
-  // Return the current state of the solver as defined above.
+  //------------------------------------------------------------------------
+  // Adds a literal to the constraint clause. Same functionality as 'add'
+  // but the clause only exists for the next call to solve (same lifetime as
+  // assumptions). Only one constraint may exists at a time. A new
+  // constraint replaces the old. The main application of this functonality
+  // is the model checking algorithm IC3. See our FMCAD'21 paper
+  // [FroleyksBiere-FMCAD'19] for more details.
   //
-  const State & state () const { return _state; }
+  // Add valid literal to the constraint clause or zero to terminate it.
+  //
+  //   require (VALID)                     // recall 'VALID = READY |
+  //   ADDING' if (lit) ensure (ADDING)            // and thus VALID but not
+  //   READY if (!lit) && !adding_clause ensure (UNKNOWN) // and thus READY
+  //
+  void constrain (int lit);
 
-  /*----------------------------------------------------------------------*/
+  // Determine whether the constraint was used to proof the
+  // unsatisfiability. Note that the formula might still be unsatisfiable
+  // without the constraint.
+  //
+  //   require (UNSATISFIED)
+  //   ensure (UNSATISFIED)
+  //
+  bool constraint_failed ();
 
-  static const char * version ();    // return version string
-
-  /*----------------------------------------------------------------------*/
-  // The copy constructor is not a deep clone, but only copies irredundant
-  // clauses and makes sure that witness reconstruction works with the copy
-  // as with the original formula.  Both have the same models.  Assumptions
-  // are not copied.
+  //------------------------------------------------------------------------
+  // This function determines a good splitting literal.  The result can be
+  // zero if the formula is proven to be satisfiable or unsatisfiable.  This
+  // can then be checked by 'state ()'.  If the formula is empty and
+  // the function is not able to determine satisfiability also zero is
+  // returned but the state remains unknown.
   //
   //   require (READY)
-  //   ensure (READY)
+  //   ensure (UNKNOWN|SATISFIED|UNSATISFIED)
   //
-  // (for both this solver and its copy)
+  int lookahead (void);
+
+  struct CubesWithStatus {
+    int status;
+    std::vector<std::vector<int>> cubes;
+  };
+
+  CubesWithStatus generate_cubes (int, int min_depth = 0);
+
+  void reset_assumptions ();
+  void reset_constraint ();
+
+  // Return the current state of the solver as defined above.
   //
-  void copy (Solver &) const;
+  const State &state () const { return _state; }
+
+  // Similar to 'state ()' but using the staddard competition exit codes of
+  // '10' for 'SATISFIABLE', '20' for 'UNSATISFIABLE' and '0' otherwise.
+  //
+  int status () const {
+    if (_state == SATISFIED)
+      return 10;
+    else if (_state == UNSATISFIED)
+      return 20;
+    else
+      return 0;
+  }
+
+  /*----------------------------------------------------------------------*/
+
+  static const char *version (); // return version string
+
+  /*----------------------------------------------------------------------*/
+  // Copy 'this' into a fresh 'other'.  The copy procedure is not a deep
+  // clone, but only copies irredundant clauses and units.  It also makes
+  // sure that witness reconstruction works with the copy as with the
+  // original formula such that both solvers have the same models.
+  // Assumptions are not copied.  Options however are copied as well as
+  // flags which remember the current state of variables in preprocessing.
+  //
+  //   require (READY)          // for 'this'
+  //   ensure (READY)           // for 'this'
+  //
+  //   other.require (CONFIGURING)
+  //   other.ensure (CONFIGURING | UNKNOWN)
+  //
+  void copy (Solver &other) const;
 
   /*----------------------------------------------------------------------*/
   // Variables are usually added and initialized implicitly whenever a
@@ -315,6 +424,7 @@ public:
   //
   void reserve (int min_max_var);
 
+#ifndef NTRACING
   //------------------------------------------------------------------------
   // This function can be used to write API calls to a file.  The same
   // format is used which 'mobical' can read, execute and also shrink
@@ -333,29 +443,34 @@ public:
   //   require (VALID)
   //   ensure (VALID)
   //
-  void trace_api_calls (FILE * file);
+  void trace_api_calls (FILE *file);
+#endif
 
   //------------------------------------------------------------------------
   // Option handling.
 
   // Determine whether 'name' is a valid option name.
   //
-  static bool is_valid_option (const char * name);
+  static bool is_valid_option (const char *name);
+
+  // Determine whether 'name' enables a specific preprocessing technique.
+  //
+  static bool is_preprocessing_option (const char *name);
 
   // Determine whether 'arg' is a valid long option of the form '--<name>',
   // '--<name>=<val>' or '--no-<name>' similar to 'set_long_option' below.
   // Legal values are 'true', 'false', or '[-]<mantissa>[e<exponent>]'.
 
-  static bool is_valid_long_option (const char * arg);
+  static bool is_valid_long_option (const char *arg);
 
   // Get the current value of the option 'name'.  If 'name' is invalid then
   // zero is returned.  Here '--...' arguments as invalid options.
   //
-  int get (const char * name);
+  int get (const char *name);
 
   // Set the default verbose message prefix (default "c ").
   //
-  void prefix (const char * verbose_message_prefix);
+  void prefix (const char *verbose_message_prefix);
 
   // Explicit version of setting an option.  If the option '<name>' exists
   // and '<val>' can be parsed then 'true' is returned.  If the option value
@@ -367,7 +482,7 @@ public:
   //
   // Thus options can only bet set right after initialization.
   //
-  bool set (const char * name, int val);
+  bool set (const char *name, int val);
 
   // This function accepts options in command line syntax:
   //
@@ -382,7 +497,7 @@ public:
   //   require (CONFIGURING)
   //   ensure (CONFIGURING)
   //
-  bool set_long_option (const char * arg);
+  bool set_long_option (const char *arg);
 
   // Determine whether 'name' is a valid configuration.
   //
@@ -412,14 +527,17 @@ public:
   // preprocessing rounds, which is zero by default.  Similarly, the local
   // search limit determines the number of local search rounds (also zero by
   // default).  As with 'set', the return value denotes whether the limit
-  // 'name' is valid.  These limits are only valid for the next 'solve' call
-  // and reset to their default after 'solve' returns.
+  // 'name' is valid.  These limits are only valid for the next 'solve' or
+  // 'simplify' call and reset to their default after 'solve' returns (as
+  // well as overwritten and reset during calls to 'simplify' and
+  // 'lookahead').  We actually also have an internal "terminate" limit
+  // which however should only be used for testing and debugging.
   //
   //   require (READY)
   //   ensure (READY)
   //
-  bool limit (const char * arg, int val);
-  bool is_valid_limit (const char * arg);
+  bool limit (const char *arg, int val);
+  bool is_valid_limit (const char *arg);
 
   // The number of currently active variables and clauses can be queried by
   // these functions.  Variables become active if a clause is added with it.
@@ -436,8 +554,17 @@ public:
   int64_t irredundant () const; // Number of active irredundant clauses.
 
   //------------------------------------------------------------------------
-  // Same as 'solve' with 'limits ("conflicts", 0)' and
-  //                      'limits ("preprocessing", rounds)'.
+  // This function executes the given number of preprocessing rounds. It is
+  // similar to 'solve' with 'limits ("preprocessing", rounds)' except that
+  // no CDCL nor local search, nor lucky phases are executed.  The result
+  // values are also the same: 0=unknown, 10=satisfiable, 20=unsatisfiable.
+  // As 'solve' it resets current assumptions and limits before returning.
+  // The numbers of rounds should not be negative.  If the number of rounds
+  // is zero only clauses are restored (if necessary) and top level unit
+  // propagation is performed, which both take some time.
+  //
+  //   require (READY)
+  //   ensure (UNKNOWN | SATISFIED | UNSATISFIED)
   //
   int simplify (int rounds = 3);
 
@@ -474,12 +601,14 @@ public:
   // error message even if in principle the solver could just restore
   // clauses. Thus this option is disabled by default.
   //
+  // See our SAT'19 paper [FazekasBiereScholl-SAT'19] for more details.
+  //
   //   require (VALID)
   //   ensure (VALID)
   //
   bool frozen (int lit) const;
   void freeze (int lit);
-  void melt (int lit);          // Also needs 'require (frozen (lit))'.
+  void melt (int lit); // Also needs 'require (frozen (lit))'.
 
   //------------------------------------------------------------------------
 
@@ -493,6 +622,12 @@ public:
   int fixed (int lit) const;
 
   //------------------------------------------------------------------------
+  // Force the default decision phase of a variable to a certain value.
+  //
+  void phase (int lit);
+  void unphase (int lit);
+
+  //------------------------------------------------------------------------
 
   // Enables clausal proof tracing in DRAT format and returns 'true' if
   // successfully opened for writing.  Writing proofs has to be enabled
@@ -502,8 +637,8 @@ public:
   //   require (CONFIGURING)
   //   ensure (CONFIGURING)
   //
-  bool trace_proof (FILE * file, const char * name); // Write DRAT proof.
-  bool trace_proof (const char * path);              // Open & write proof.
+  bool trace_proof (FILE *file, const char *name); // Write DRAT proof.
+  bool trace_proof (const char *path);             // Open & write proof.
 
   // Flush proof trace file.
   //
@@ -528,12 +663,13 @@ public:
   //   require (!DELETING)
   //   ensure (!DELETING)
   //
-  void statistics ();   // print statistics
+  void statistics (); // print statistics
+  void resources ();  // print resource usage (time and memory)
 
   //   require (VALID)
   //   ensure (VALID)
   //
-  void options ();      // print current option and value list
+  void options (); // print current option and value list
 
   //------------------------------------------------------------------------
   // Traverse irredundant clauses or the extension stack in reverse order.
@@ -558,16 +694,30 @@ public:
   // clauses specified in the DIMACS headers are ignored, i.e., the header
   // 'p cnf 0 0' is always legal.  If the 'strict' argument is larger '1'
   // strict formatting of the header is required, i.e., single spaces
-  // everywhere and no trailing white space. Default is 'strict == 1'.
+  // everywhere and no trailing white space.
   //
   // Returns zero if successful and otherwise an error message.
   //
   //   require (VALID)
   //   ensure (VALID)
   //
-  const char * read_dimacs (FILE * file,
-                            const char * name, int & vars, int strict);
-  const char * read_dimacs (const char * path, int & vars, int strict);
+  const char *read_dimacs (FILE *file, const char *name, int &vars,
+                           int strict = 1);
+
+  const char *read_dimacs (const char *path, int &vars, int strict = 1);
+
+  // The following routines work the same way but parse both DIMACS and
+  // INCCNF files (with 'p inccnf' header and 'a <cube>' lines).  If the
+  // parser finds and 'p inccnf' header or cubes then '*incremental' is set
+  // to true and the cubes are stored in the given vector (each cube
+  // terminated by a zero).
+
+  const char *read_dimacs (FILE *file, const char *name, int &vars,
+                           int strict, bool &incremental,
+                           std::vector<int> &cubes);
+
+  const char *read_dimacs (const char *path, int &vars, int strict,
+                           bool &incremental, std::vector<int> &cubes);
 
   //------------------------------------------------------------------------
   // Write current irredundant clauses and all derived unit clauses
@@ -582,20 +732,26 @@ public:
   //   require (VALID)
   //   ensure (VALID)
   //
-  const char * write_dimacs (const char * path, int min_max_var = 0);
+  const char *write_dimacs (const char *path, int min_max_var = 0);
 
   // The extension stack for reconstruction a solution can be written too.
   //
-  const char * write_extension (const char * path);
+  const char *write_extension (const char *path);
 
   // Print build configuration to a file with prefix 'c '.  If the file
   // is '<stdout>' or '<stderr>' then terminal color codes might be used.
   //
-  static void build (FILE * file, const char * prefix = "c ");
+  static void build (FILE *file, const char *prefix = "c ");
 
 private:
+  //==== start of state ====================================================
 
-  State _state;            // API states as discussed above.
+  // The solver is in the state ADDING if either the current clause or the
+  // constraint (or both) is not yet terminated.
+  bool adding_clause;
+  bool adding_constraint;
+
+  State _state; // API states as discussed above.
 
   /*----------------------------------------------------------------------*/
 
@@ -633,9 +789,10 @@ private:
   // necessary, if we want to use extended resolution in the future (such as
   // bounded variable addition).
   //
-  Internal * internal;     // Hidden internal solver.
-  External * external;     // Hidden API to internal solver mapping.
+  Internal *internal; // Hidden internal solver.
+  External *external; // Hidden API to internal solver mapping.
 
+#ifndef NTRACING
   // The API calls to the solver can be traced by setting the environment
   // variable 'CADICAL_API_TRACE' to point to the path of a file to which
   // API calls are written. The same format is used which 'mobical' can
@@ -647,13 +804,17 @@ private:
   // Alternatively one case use 'trace_api_calls'.  Both
   //
   bool close_trace_api_file; // Close file if owned by solver it.
-  FILE * trace_api_file;     // Also acts as flag that we are tracing.
+  FILE *trace_api_file;      // Also acts as flag that we are tracing.
 
   static bool tracing_api_through_environment;
 
+  //===== end of state ====================================================
+
   void trace_api_call (const char *) const;
   void trace_api_call (const char *, int) const;
+  void trace_api_call (const char *, const char *) const;
   void trace_api_call (const char *, const char *, int) const;
+#endif
 
   void transition_to_unknown_state ();
 
@@ -672,35 +833,65 @@ private:
   //   require (VALID)
   //   ensure (VALID)
   //
-  const char * read_solution (const char * path);
+  const char *read_solution (const char *path);
+
+  // Cross-compilation with 'MinGW' needs some work-around for 'printf'
+  // style printing of 64-bit numbers including warning messages.  The
+  // followings lines are copies of similar code in 'inttypes.hpp' but we
+  // want to keep the 'cadical.hpp' header file stand-alone.
+
+#ifndef PRINTF_FORMAT
+#ifdef __MINGW32__
+#define __USE_MINGW_ANSI_STDIO 1
+#define PRINTF_FORMAT __MINGW_PRINTF_FORMAT
+#else
+#define PRINTF_FORMAT printf
+#endif
+#endif
+
+  // This gives warning messages for wrong 'printf' style format string
+  // usage. Apparently (on 'gcc 9' at least) the first argument is 'this'
+  // here.
+  //
+  // TODO: support for other compilers (beside 'gcc' and 'clang').
+
+#define CADICAL_ATTRIBUTE_FORMAT(FORMAT_POSITION, \
+                                 VARIADIC_ARGUMENT_POSITION) \
+  __attribute__ ((format (PRINTF_FORMAT, FORMAT_POSITION, \
+                          VARIADIC_ARGUMENT_POSITION)))
 
   // Messages in a common style.
   //
   //   require (VALID | DELETING)
   //   ensure (VALID | DELETING)
   //
-  void section (const char *);          // print section header
-  void message (const char *, ...);     // ordinary message
-  void message ();                      // empty line - only prefix
-  void error (const char *, ...);       // produce error message
+  void section (const char *);     // print section header
+  void message (const char *, ...) // ordinary message
+      CADICAL_ATTRIBUTE_FORMAT (2, 3);
+
+  void message ();               // empty line - only prefix
+  void error (const char *, ...) // produce error message
+      CADICAL_ATTRIBUTE_FORMAT (2, 3);
 
   // Explicit verbose level ('section' and 'message' use '0').
   //
   //   require (VALID | DELETING)
   //   ensure (VALID | DELETING)
   //
-  void verbose (int level, const char *, ...);
+  void verbose (int level, const char *, ...)
+      CADICAL_ATTRIBUTE_FORMAT (3, 4);
 
   // Factoring out common code to both 'read_dimacs' functions above.
   //
   //   require (VALID)
   //   ensure (VALID)
   //
-  const char * read_dimacs (File *, int &, int strict);
+  const char *read_dimacs (File *, int &, int strict, bool *incremental = 0,
+                           std::vector<int> * = 0);
 
-  // Factored out common code for 'solve' and 'simplify'.
+  // Factored out common code for 'solve', 'simplify' and 'lookahead'.
   //
-  int call_external_solve_and_check_results ();
+  int call_external_solve_and_check_results (bool preprocess_only);
 
   //------------------------------------------------------------------------
   // Print DIMACS file to '<stdout>' for debugging and testing purposes,
@@ -717,26 +908,40 @@ private:
 
 /*========================================================================*/
 
-// Connected terminators are checked for termination regularly.
+// Connected terminators are checked for termination regularly.  If the
+// 'terminate' function of the terminator returns true the solver is
+// terminated synchronously as soon it calls this function.
 
 class Terminator {
 public:
-  virtual ~Terminator () { }
+  virtual ~Terminator () {}
   virtual bool terminate () = 0;
+};
+
+// Connected learners which can be used to export learned clauses.
+// The 'learning' can check the size of the learn clause and only if it
+// returns true then the individual literals of the learned clause are given
+// to the learn through 'learn' one by one terminated by a zero literal.
+
+class Learner {
+public:
+  virtual ~Learner () {}
+  virtual bool learning (int size) = 0;
+  virtual void learn (int lit) = 0;
 };
 
 /*------------------------------------------------------------------------*/
 
 // Allows to traverse all remaining irredundant clauses.  Satisfied and
-// eliminated clauses are not included, nor any derived units unless the
-// unit variable is frozen. Falsified literals are skipped.  If the solver
+// eliminated clauses are not included, nor any derived units unless such
+// a unit literal is frozen. Falsified literals are skipped.  If the solver
 // is inconsistent only the empty clause is traversed.
 //
-// If 'clause' returns false traversal can abort early.
-//
+// If 'clause' returns false traversal aborts early.
+
 class ClauseIterator {
 public:
-  virtual ~ClauseIterator () { }
+  virtual ~ClauseIterator () {}
   virtual bool clause (const std::vector<int> &) = 0;
 };
 
@@ -754,16 +959,18 @@ public:
 // remaining clauses to satisfy the clauses on the extension stack too.
 //
 // All derived units of non-frozen variables are included too.
+//
+// If 'witness' returns false traversal aborts early.
 
 class WitnessIterator {
 public:
-  virtual ~WitnessIterator () { }
-  virtual bool witness (const std::vector<int> & clause,
-                        const std::vector<int> & witness) = 0;
+  virtual ~WitnessIterator () {}
+  virtual bool witness (const std::vector<int> &clause,
+                        const std::vector<int> &witness) = 0;
 };
 
 /*------------------------------------------------------------------------*/
 
-}
+} // namespace CaDiCaL
 
 #endif

@@ -5,8 +5,14 @@
 // defining '-DNBUILD'.  Then we try to guess part of the configuration.
 
 #ifndef NBUILD
+#if __GNUC__ > 4
+#if __has_include(<build.hpp>)
 #include <build.hpp>
-#endif
+#endif // __has_include
+#else
+#include <build.hpp>
+#endif // __GNUC > 4
+#endif // NBUILD
 
 /*------------------------------------------------------------------------*/
 
@@ -16,15 +22,18 @@
 // the file '../VERSION' with '../scripts/update-version.sh'.  The standard
 // build process relies on 'VERSION' to be defined in 'build.hpp'.
 
-#  define VERSION "1.2.1"
+#ifdef NBUILD
+#ifndef VERSION
+#define VERSION "1.5.6"
+#endif // VERSION
+#endif // NBUILD
 
 /*------------------------------------------------------------------------*/
 
 // The copyright of the code is here.
 
-static const char * COPYRIGHT =
-"Copyright (c) 2016-2019 Armin Biere, JKU Linz"
-;
+static const char *COPYRIGHT =
+    "Copyright (c) 2016-2023 A. Biere, M. Fleury, N. Froleyks";
 
 /*------------------------------------------------------------------------*/
 
@@ -35,39 +44,39 @@ static const char * COPYRIGHT =
 // those as unknown.
 
 #ifndef COMPILER
-#  ifdef __clang__
-#    ifdef __VERSION__
-#      define COMPILER "clang++-" __VERSION__
-#    else
-#      define COMPILER "clang++"
-#    endif
-#  elif defined (__GNUC__)
-#    ifdef __VERSION__
-#      define COMPILER "g++-" __VERSION__
-#    else
-#      define COMPILER "g++"
-#    endif
-#  else
-#    define COMPILER 0
-#  endif
+#ifdef __clang__
+#ifdef __VERSION__
+#define COMPILER "clang++-" __VERSION__
+#else
+#define COMPILER "clang++"
+#endif
+#elif defined(__GNUC__)
+#ifdef __VERSION__
+#define COMPILER "g++-" __VERSION__
+#else
+#define COMPILER "g++"
+#endif
+#else
+#define COMPILER 0
+#endif
 #endif
 
 // GIT SHA2 identifier.
 //
 #ifndef IDENTIFIER
-#  define IDENTIFIER 0
+#define IDENTIFIER 0
 #endif
 
 // Compilation flags.
 //
 #ifndef FLAGS
-#  define FLAGS 0
+#define FLAGS 0
 #endif
 
 // Build Time and operating system.
 //
 #ifndef DATE
-#  define DATE __DATE__ __TIME__
+#define DATE __DATE__ " " __TIME__
 #endif
 
 /*------------------------------------------------------------------------*/
@@ -76,12 +85,12 @@ static const char * COPYRIGHT =
 
 namespace CaDiCaL {
 
-const char * version () { return VERSION; }
-const char * copyright () { return COPYRIGHT; }
-const char * signature () { return "cadical-" VERSION; }
-const char * identifier () { return IDENTIFIER; }
-const char * compiler () { return COMPILER; }
-const char * date () { return DATE; }
-const char * flags () { return FLAGS; }
+const char *version () { return VERSION; }
+const char *copyright () { return COPYRIGHT; }
+const char *signature () { return "cadical-" VERSION; }
+const char *identifier () { return IDENTIFIER; }
+const char *compiler () { return COMPILER; }
+const char *date () { return DATE; }
+const char *flags () { return FLAGS; }
 
-}
+} // namespace CaDiCaL

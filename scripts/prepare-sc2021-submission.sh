@@ -1,18 +1,16 @@
 #!/bin/sh
 cd `dirname $0`/..
 root=`pwd`
-tmp=/tmp/prepare-cadical-sr2018-submission.log
+tmp=/tmp/prepare-cadical-sc2021-submission.log
 VERSION=`cat VERSION`
 rm -f $tmp
 ##########################################################################
 cd $root
-./scripts/make-src-release.sh | tee $tmp
+./scripts/make-src-release.sh >$tmp || exit 1
 tar=`awk '{print $2}' $tmp |sed -e "s,',,g"`
 ##########################################################################
-prepare () {
-option=$1
 cd $root
-base=cadical-${VERSION}-starexec-$option
+base=cadical-${VERSION}-starexec
 dir=/tmp/$base
 rm -rf $dir
 mkdir $dir
@@ -25,7 +23,7 @@ cat <<EOF >$dir/build/build.sh
 tar xf ../archives/cadical*
 mv cadical* cadical
 cd cadical
-./configure
+./configure --competition
 make test
 install -s build/cadical ../../bin/
 EOF
@@ -38,19 +36,17 @@ EOF
 chmod 755 $dir/starexec_build
 cat <<EOF >$dir/bin/starexec_run_default
 #!/bin/sh
-exec ./cadical --$option \$1 \$2/proof.out
+exec ./cadical \$1 \$2/proof.out
 EOF
 chmod 755 $dir/bin/starexec_run_default
+description=$dir/starexec_description.txt
+grep '^CaDiCaL' README.md|head -1 >$description
+cat $description
 archive=/tmp/$base.zip
 rm -f $archive
 cd $dir
 zip -r $archive .
 cd /tmp/
 ls -l $archive
-#rm -f $tmp
-#rm -rf $dir/
-}
-##########################################################################
-prepare default
-#prepare unsat
-#prepare sat
+rm -f $tmp
+rm -rf $dir/

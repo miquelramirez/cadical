@@ -2,9 +2,7 @@
 
 namespace CaDiCaL {
 
-Limit::Limit () {
-  memset (this, 0, sizeof *this);
-}
+Limit::Limit () { memset (this, 0, sizeof *this); }
 
 /*------------------------------------------------------------------------*/
 
@@ -12,54 +10,32 @@ double Internal::scale (double v) const {
   const double ratio = clause_variable_ratio ();
   const double factor = (ratio <= 2) ? 1.0 : log (ratio) / log (2);
   double res = factor * v;
-  if (res < 1) res = 1;
+  if (res < 1)
+    res = 1;
   return res;
 }
 
 /*------------------------------------------------------------------------*/
 
-bool Internal::terminating () {
-
-  if (external->terminator && external->terminator->terminate ()) {
-    LOG ("connected terminator forces termination");
-    return true;
-  }
-
-  if (termination_forced) {
-    LOG ("termination forced");
-    return true;
-  }
-
-  if (!preprocessing &&
-      !localsearching &&
-      lim.conflicts >= 0 &&
-      stats.conflicts >= lim.conflicts) {
-    LOG ("conflict limit %" PRId64 " reached", lim.conflicts);
-    return true;
-  }
-
-  if (!preprocessing &&
-      !localsearching &&
-      lim.decisions >= 0 &&
-      stats.decisions >= lim.decisions) {
-    LOG ("decision limit %" PRId64 " reached", lim.decisions);
-    return true;
-  }
-
-  return false;
-}
-
-/*------------------------------------------------------------------------*/
-
-Last::Last () {
-  memset (this, 0, sizeof *this);
-}
+Last::Last () { memset (this, 0, sizeof *this); }
 
 /*------------------------------------------------------------------------*/
 
 Inc::Inc () {
   memset (this, 0, sizeof *this);
-  decisions = conflicts = -1;           // unlimited
+  decisions = conflicts = -1; // unlimited
+}
+
+void Internal::limit_terminate (int l) {
+  if (l <= 0 && !lim.terminate.forced) {
+    LOG ("keeping unbounded terminate limit");
+  } else if (l <= 0) {
+    LOG ("reset terminate limit to be unbounded");
+    lim.terminate.forced = 0;
+  } else {
+    lim.terminate.forced = l;
+    LOG ("new terminate limit of %d calls", l);
+  }
 }
 
 void Internal::limit_conflicts (int l) {
@@ -81,7 +57,7 @@ void Internal::limit_decisions (int l) {
     LOG ("reset decision limit to be unbounded");
     inc.decisions = -1;
   } else {
-    inc.decisions = stats.decisions + l;
+    inc.decisions = l;
     LOG ("new decision limit of %d decisions", l);
   }
 }
@@ -110,31 +86,44 @@ void Internal::limit_local_search (int l) {
   }
 }
 
-bool Internal::is_valid_limit (const char * name) {
-  if (!strcmp (name, "conflicts")) return true;
-  if (!strcmp (name, "decisions")) return true;
-  if (!strcmp (name, "preprocessing")) return true;
-  if (!strcmp (name, "localsearch")) return true;
+bool Internal::is_valid_limit (const char *name) {
+  if (!strcmp (name, "terminate"))
+    return true;
+  if (!strcmp (name, "conflicts"))
+    return true;
+  if (!strcmp (name, "decisions"))
+    return true;
+  if (!strcmp (name, "preprocessing"))
+    return true;
+  if (!strcmp (name, "localsearch"))
+    return true;
   return false;
 }
 
-bool Internal::limit (const char * name, int l) {
+bool Internal::limit (const char *name, int l) {
   bool res = true;
-       if (!strcmp (name, "conflicts")) limit_conflicts (l);
-  else if (!strcmp (name, "decisions")) limit_decisions (l);
-  else if (!strcmp (name, "preprocessing")) limit_preprocessing (l);
-  else if (!strcmp (name, "localsearch")) limit_local_search (l);
-  else res = false;
+  if (!strcmp (name, "terminate"))
+    limit_terminate (l);
+  else if (!strcmp (name, "conflicts"))
+    limit_conflicts (l);
+  else if (!strcmp (name, "decisions"))
+    limit_decisions (l);
+  else if (!strcmp (name, "preprocessing"))
+    limit_preprocessing (l);
+  else if (!strcmp (name, "localsearch"))
+    limit_local_search (l);
+  else
+    res = false;
   return res;
 }
 
 void Internal::reset_limits () {
   LOG ("reset limits");
+  limit_terminate (0);
   limit_conflicts (-1);
   limit_decisions (-1);
   limit_preprocessing (0);
   limit_local_search (0);
 }
 
-}
-
+} // namespace CaDiCaL

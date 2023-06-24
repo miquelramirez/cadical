@@ -53,7 +53,7 @@ fi
 #
 COMPILER="`sed -e '/^CXX=/!d' -e 's,^CXX=,,' makefile 2>/dev/null`"
 case x"$COMPILER" in 
-  xg++* | xclang++*)
+  x*g++* | x*clang++*)
     COMPILER="`$COMPILER --version 2>/dev/null|head -1`";;
   *) COMPILER="";;
 esac
@@ -76,7 +76,7 @@ else
 fi
 
 #--------------------------------------------------------------------------#
-# Use time of executing this script as build time.
+# Use time of executing this script at build time.
 #
 LC_TIME="en_US" # Avoid umlaut in 'DATE'.
 export LC_TIME
