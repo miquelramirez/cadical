@@ -30,6 +30,7 @@ set(SOURCES analyze.cpp arena.cpp assume.cpp
         config.cpp cover.cpp constrain.cpp
         decide.cpp decompose.cpp deduplicate.cpp
         elim.cpp ema.cpp extend.cpp external.cpp
+        external_propagate.cpp
         file.cpp flip.cpp flags.cpp format.cpp gates.cpp
         instantiate.cpp internal.cpp ipasir.cpp
         lookahead.cpp
