@@ -27,4 +27,4 @@ find_library(CADICAL_LIBRARIES NAMES cadical.${CADICAL_VERSION} cadical
     PATHS ${CADICAL_LIBRARY_DIR} NO_DEFAULT_PATH)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(cadical DEFAULT_MSG CADICAL_INCLUDE_DIRS CADICAL_LIBRARIES)
+find_package_handle_standard_args(CaDiCaL DEFAULT_MSG CADICAL_INCLUDE_DIRS CADICAL_LIBRARIES)
