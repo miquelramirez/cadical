@@ -34,8 +34,10 @@ set(SOURCES analyze.cpp arena.cpp assume.cpp
         file.cpp flip.cpp flags.cpp format.cpp gates.cpp
         instantiate.cpp internal.cpp ipasir.cpp
         lookahead.cpp
+        lratbuilder.cpp
+        lratchecker.cpp
         limit.cpp logging.cpp lucky.cpp
-        message.cpp minimize.cpp observer.hpp
+        message.cpp minimize.cpp
         occs.cpp options.cpp parse.cpp phases.cpp
         probe.cpp probe.cpp proof.cpp propagate.cpp
         profile.cpp
