@@ -24,7 +24,7 @@ struct LratCheckerClause {
   unsigned size;
   bool used;
   bool tautological;
-  int* literals = nullptr; // 'literals' of length 'size'
+  int literals[]; // 'literals' of length 'size'
 };
 
 /*------------------------------------------------------------------------*/

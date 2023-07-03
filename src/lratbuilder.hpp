@@ -23,7 +23,7 @@ struct LratBuilderClause {
   uint64_t id;             // id of clause
   bool garbage;            // for garbage clauses
   unsigned size;
-  int* literals = nullptr; // 'literals' of length 'size'
+  int literals[]; // 'literals' of length 'size'
 };
 
 struct LratBuilderWatch {
