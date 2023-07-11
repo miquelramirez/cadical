@@ -62,4 +62,7 @@ add_executable(lazy_int_vars lazy_int_vars.cpp)
 add_dependencies(lazy_int_vars cadical)
 target_link_libraries(lazy_int_vars cadical)
 
+add_executable(eager_int_vars eager_int_vars.cpp)
+add_dependencies(eager_int_vars cadical)
+target_link_libraries(eager_int_vars cadical)
 

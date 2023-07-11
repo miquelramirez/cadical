@@ -1,5 +1,5 @@
 //
-// Created by Miquel Ramirez on 7/07/2023.
+// Created by Miquel Ramirez on 11/07/2023.
 //
 #include <cadical/cadical.hpp>
 #include <memory>
@@ -37,19 +37,23 @@ public:
 
     ~Model() = default;
 
+    void    prepare();
+
     int     new_var(const std::vector<int>& D);
     void    add_not_equal(const std::vector<int>& V);
 
-    void    notify_assignment(int lit, bool is_fixed) override {}
-
-    void    notify_new_decision_level() override {};
-
-    void    notify_backtrack(size_t new_level) override {};
+    void    notify_assignment(int lit, bool is_fixed) override;
+    void    notify_new_decision_level() override;
+    void    notify_backtrack(size_t new_level) override;
 
     bool    cb_check_found_model(const std::vector<int> &model) override;
 
-    bool    cb_has_external_clause() override;
+    int     cb_decide() override;
+    int     cb_propagate() override;
 
+    int     cb_add_reason_clause_lit(int propagated_lit) override;
+
+    bool    cb_has_external_clause() override;
     int     cb_add_external_clause_lit() override;
 
     int     value(int x_id) const;
@@ -65,6 +69,10 @@ protected:
     LitTable                bool_lit_map;
     int                     bool_var_hi = 1;
     std::vector<int>        int_trail;
+    int                     tail = -1;
+    std::vector<int>        assigned;
+    std::vector<int>        levels;
+    int                     level = -1;
 
 public:
     // statistics
@@ -75,7 +83,6 @@ public:
 Model::Model(CaDiCaL::Solver *s)
         : solver(s) {
     solver->connect_external_propagator(this);
-    is_lazy = true;
 }
 
 int
@@ -107,6 +114,14 @@ Model::new_var(const std::vector<int> &D) {
     return var_id;
 }
 
+void
+Model::prepare() {
+    tail = -1;
+    int_trail.resize(vars.size(), -1);
+    assigned.resize(vars.size(), -1);
+    levels.resize(vars.size(), -1);
+}
+
 int
 Model::value(int x_id) const {
     if (int_trail.empty()) return -1;
@@ -118,10 +133,79 @@ Model::add_not_equal(const std::vector<int> &V) {
     constraints.push_back(NotEqual{V});
 }
 
+void
+Model::notify_assignment(int lit, bool is_fixed) {
+    num_calls++;
+
+    if (!bool_lit_map.contains(lit))
+        return;
+
+    auto [x, v] = bool_lit_map[lit];
+    assert(int_trail[x] < 0);
+    int_trail[x] = v;
+    tail++;
+    assigned[tail] = x;
+    levels[tail] = level;
+
+    for (const auto& c: constraints) {
+
+        auto l_id = c.scope[0];
+        const auto& l_x = vars[l_id];
+        if (int_trail[l_id] < 0)
+            continue;
+
+        auto r_id = c.scope[1];
+        const auto& r_x = vars[r_id];
+
+        if (int_trail[r_id] < 0)
+            continue;
+
+        if (int_trail[l_id] == int_trail[r_id]) {
+            // conflict
+            num_neq_confl++;
+            reason_failure.lits.resize(2);
+            reason_failure.lits[0] = -(l_x.eq_lits[int_trail[l_x.id]]);
+            reason_failure.lits[1] = -(r_x.eq_lits[int_trail[r_x.id]]);
+            reason_failure.added = false;
+            return;
+        }
+    }
+}
+
+void
+Model::notify_new_decision_level() {
+    level++;
+}
+
+void
+Model::notify_backtrack(size_t new_level) {
+    while (tail >= 0 && tail > (int)new_level) {
+        int_trail[assigned[tail]] = -1;
+        tail--;
+    }
+}
+
+int
+Model::cb_decide() {
+    return 0;
+}
+
+int
+Model::cb_propagate() {
+
+    return 0;
+}
+
+int
+Model::cb_add_reason_clause_lit(int propagated_lit) {
+    (void) propagated_lit;
+    return 0;
+}
+
 bool
 Model::cb_check_found_model(const std::vector<int> &model) {
     num_calls++;
-    int_trail.resize(vars.size(), -1);
+
     // 0. Construct trail and Check Domain constraints, which are partially encoded
     // MRJ: Note that model only contains literals of variables observed by the current propagator
     for (std::size_t lit_idx = 0; lit_idx < model.size(); lit_idx++) {
@@ -209,6 +293,8 @@ int main(int argc, char **argv) {
     cp_model->add_not_equal({QLD, NSW});
     cp_model->add_not_equal({NSW, VIC});
 
+    cp_model->prepare();
+
     int res = solver->solve();
 
     assert(res == 10);
@@ -225,7 +311,7 @@ int main(int argc, char **argv) {
             case 5: return "VIC";
             case 6: return "TAS";
             default:
-            break;
+                break;
         }
         return "UNK";
     };
