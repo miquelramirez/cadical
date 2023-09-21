@@ -179,10 +179,11 @@ Model::notify_new_decision_level() {
 
 void
 Model::notify_backtrack(size_t new_level) {
-    while (tail >= 0 && tail > (int)new_level) {
+    while (tail >= 0 && levels[tail] > (int)new_level) {
         int_trail[assigned[tail]] = -1;
         tail--;
     }
+    level = new_level;
 }
 
 int
