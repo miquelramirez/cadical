@@ -23,31 +23,46 @@ elseif(CMAKE_BUILD_TYPE MATCHES Release)
 endif()
 
 # libraries
-set(SOURCES analyze.cpp arena.cpp assume.cpp
-        averages.cpp backtrack.cpp backward.cpp bins.cpp
-        block.cpp cadical.cpp ccadical.cpp checker.cpp clause.cpp
-        collect.cpp compact.cpp condition.cpp contract.cpp
-        config.cpp cover.cpp constrain.cpp
-        decide.cpp decompose.cpp deduplicate.cpp
-        elim.cpp ema.cpp extend.cpp external.cpp
-        external_propagate.cpp
-        file.cpp flip.cpp flags.cpp format.cpp gates.cpp
-        instantiate.cpp internal.cpp ipasir.cpp
-        lookahead.cpp
-        lratbuilder.cpp
-        lratchecker.cpp
-        limit.cpp logging.cpp lucky.cpp
+set(SOURCES
+        # A
+        analyze.cpp arena.cpp assume.cpp averages.cpp
+        # B
+        backtrack.cpp backward.cpp bins.cpp block.cpp
+        # C
+        cadical.cpp ccadical.cpp checker.cpp clause.cpp collect.cpp compact.cpp
+        condition.cpp contract.cpp config.cpp cover.cpp constrain.cpp
+        # D
+        decide.cpp decompose.cpp deduplicate.cpp drattracer.cpp
+        # E
+        elim.cpp ema.cpp extend.cpp external.cpp external_propagate.cpp
+        # F
+        file.cpp flip.cpp flags.cpp format.cpp frattracer.cpp
+        # G
+        gates.cpp
+        # I
+        idruptracer.cpp instantiate.cpp internal.cpp ipasir.cpp
+        # L
+        limit.cpp logging.cpp lookahead.cpp lratbuilder.cpp lratchecker.cpp lrattracer.cpp lucky.cpp
+        # M
         message.cpp minimize.cpp
-        occs.cpp options.cpp parse.cpp phases.cpp
-        probe.cpp probe.cpp proof.cpp propagate.cpp
-        profile.cpp
-        queue.cpp random.cpp reap.cpp restart.cpp reduce.cpp rephase.cpp
-        report.cpp resources.cpp resources.cpp restore.cpp
-        score.cpp signal.cpp solution.cpp solver.cpp
-        shrink.cpp
-        stats.cpp subsume.cpp terminal.cpp ternary.cpp
-        tracer.cpp transred.cpp util.cpp var.cpp version.cpp
-        vivify.cpp walk.cpp walk.cpp watch.cpp
+        # O
+        occs.cpp options.cpp
+        # P
+        parse.cpp phases.cpp probe.cpp probe.cpp proof.cpp propagate.cpp profile.cpp
+        # Q
+        queue.cpp
+        # R
+        random.cpp reap.cpp restart.cpp reduce.cpp rephase.cpp report.cpp resources.cpp restore.cpp
+        # S
+        score.cpp signal.cpp solution.cpp solver.cpp shrink.cpp stats.cpp subsume.cpp
+        # T
+        terminal.cpp ternary.cpp trail.cpp transred.cpp
+        # U
+        util.cpp
+        # V
+        var.cpp veripbtracer.cpp version.cpp vivify.cpp
+        # W
+        walk.cpp watch.cpp
         )
 
 set(HEADERS
