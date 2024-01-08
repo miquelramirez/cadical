@@ -56,7 +56,7 @@ set(SOURCES
         # S
         score.cpp signal.cpp solution.cpp solver.cpp shrink.cpp stats.cpp subsume.cpp
         # T
-        terminal.cpp ternary.cpp trail.cpp transred.cpp
+        terminal.cpp ternary.cpp transred.cpp
         # U
         util.cpp
         # V
