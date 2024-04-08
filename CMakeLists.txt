@@ -37,6 +37,9 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_subdirectory(src)
+
+# For developers
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 add_subdirectory(test/api EXCLUDE_FROM_ALL)
 
 include(CMakePackageConfigHelpers)
@@ -55,3 +58,5 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/CaDiCaLConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/CaDiCaLConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cadical
         COMPONENT cadical)
+
+endif()
