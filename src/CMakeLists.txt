@@ -79,22 +79,13 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/" # source directory
 # CaDiCaL shared library
 add_library(cadical SHARED ${HEADERS} ${SOURCES})
 
-set_target_properties (cadical PROPERTIES
-        OUTPUT_NAME ${LIBNAME}
-        SOVERSION ${LIBRARY_SOVERSION}
-        FRAMEWORK ON)
+#set_target_properties (cadical PROPERTIES
+#        OUTPUT_NAME cadical
+#        SOVERSION ${LIBRARY_SOVERSION})
 
-install(TARGETS cadical LIBRARY DESTINATION lib
-        NAMELINK_SKIP
-        COMPONENT runtime/Con
-        # For Mac
-        FRAMEWORK DESTINATION "/Library/Frameworks")
+install(TARGETS cadical LIBRARY DESTINATION lib)
 
-install(TARGETS cadical LIBRARY DESTINATION lib
-        NAMELINK_ONLY
-        COMPONENT devel
-        # For Mac
-        FRAMEWORK DESTINATION "/Library/Frameworks")
+install(TARGETS cadical LIBRARY DESTINATION lib)
 
 # CaDiCal static library
 add_library(cadical_static STATIC ${HEADERS} ${SOURCES})
