@@ -41,8 +41,9 @@ set(SOURCES
         gates.cpp
         # I
         idruptracer.cpp instantiate.cpp internal.cpp ipasir.cpp
+        # K
         # L
-        limit.cpp logging.cpp lookahead.cpp lratbuilder.cpp lratchecker.cpp lrattracer.cpp lucky.cpp
+        limit.cpp logging.cpp lookahead.cpp lratbuilder.cpp lratchecker.cpp lrattracer.cpp lucky.cpp lidruptracer.cpp
         # M
         message.cpp minimize.cpp
         # O
@@ -52,7 +53,7 @@ set(SOURCES
         # Q
         queue.cpp
         # R
-        random.cpp reap.cpp restart.cpp reduce.cpp rephase.cpp report.cpp resources.cpp restore.cpp
+        random.cpp random.hpp reap.cpp restart.cpp reduce.cpp rephase.cpp report.cpp resources.cpp restore.cpp
         # S
         score.cpp signal.cpp solution.cpp solver.cpp shrink.cpp stats.cpp subsume.cpp
         # T
@@ -75,12 +76,8 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/" # source directory
         PATTERN "*.hpp" # select header files
         )
 
+# CaDiCaL shared library
 add_library(cadical SHARED ${HEADERS} ${SOURCES})
-
-add_executable(mobical mobical.cpp)
-add_dependencies(mobical cadical)
-
-target_link_libraries(mobical cadical)
 
 set_target_properties (cadical PROPERTIES
         OUTPUT_NAME ${LIBNAME}
@@ -98,3 +95,15 @@ install(TARGETS cadical LIBRARY DESTINATION lib
         COMPONENT devel
         # For Mac
         FRAMEWORK DESTINATION "/Library/Frameworks")
+
+# CaDiCal static library
+add_library(cadical_static STATIC ${HEADERS} ${SOURCES})
+
+install(TARGETS cadical_static LIBRARY DESTINATION lib)
+
+# Mobical target configuration
+add_executable(mobical mobical.cpp)
+
+add_dependencies(mobical cadical)
+
+target_link_libraries(mobical cadical)
