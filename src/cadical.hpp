@@ -361,7 +361,7 @@ public:
 
   // ====== END IPASIR =====================================================
 
-// Add call-back which allows to observe when a variable is fixed.
+  // Add call-back which allows to observe when a variable is fixed.
   //
   //   require (VALID)
   //   ensure (VALID)
@@ -386,8 +386,8 @@ public:
 
   // Mark as 'observed' those variables that are relevant to the external
   // propagator. External propagation, clause addition during search and
-  // notifications are all over these observed variabes.
-  // A variable can not be observed witouth having an external propagator
+  // notifications are all over these observed variables.
+  // A variable can not be observed without having an external propagator
   // connected. Observed variables are "frozen" internally, and so
   // inprocessing will not consider them as candidates for elimination.
   // An observed variable is allowed to be a fresh variable and it can be
@@ -426,9 +426,9 @@ public:
 
   // Force solve to backtrack to certain decision level. Can be called only
   // during 'cb_decide' of a connected External Propagator.
-  // Invoking in any other time will not have an effect. 
-  // If the call had an effect, the External Propagator will be notified about
-  // the backtrack via 'notify_backtrack'.
+  // Invoking in any other time will not have an effect.
+  // If the call had an effect, the External Propagator will be notified
+  // about the backtrack via 'notify_backtrack'.
   //
   //   require (SOLVING)
   //   ensure (SOLVING)
@@ -441,7 +441,7 @@ public:
   // Adds a literal to the constraint clause. Same functionality as 'add'
   // but the clause only exists for the next call to solve (same lifetime as
   // assumptions). Only one constraint may exists at a time. A new
-  // constraint replaces the old. The main application of this functonality
+  // constraint replaces the old. The main application of this functionality
   // is the model checking algorithm IC3. See our FMCAD'21 paper
   // [FroleyksBiere-FMCAD'19] for more details.
   //
@@ -488,7 +488,7 @@ public:
   //
   const State &state () const { return _state; }
 
-  // Similar to 'state ()' but using the staddard competition exit codes of
+  // Similar to 'state ()' but using the standard competition exit codes of
   // '10' for 'SATISFIABLE', '20' for 'UNSATISFIABLE' and '0' otherwise.
   //
   int status () const {
@@ -798,10 +798,14 @@ public:
   //   require (CONFIGURING)
   //   ensure (CONFIGURING)
   //
-  void connect_proof_tracer (Tracer *tracer, bool antecedents);
-  void connect_proof_tracer (InternalTracer *tracer, bool antecedents);
-  void connect_proof_tracer (StatTracer *tracer, bool antecedents);
-  void connect_proof_tracer (FileTracer *tracer, bool antecedents);
+  void connect_proof_tracer (Tracer *tracer, bool antecedents,
+                             bool finalize_clauses = false);
+  void connect_proof_tracer (InternalTracer *tracer, bool antecedents,
+                             bool finalize_clauses = false);
+  void connect_proof_tracer (StatTracer *tracer, bool antecedents,
+                             bool finalize_clauses = false);
+  void connect_proof_tracer (FileTracer *tracer, bool antecedents,
+                             bool finalize_clauses = false);
 
   // Triggers the conclusion of incremental proofs.
   // if the solver is SATISFIED it will trigger extend ()
@@ -810,7 +814,7 @@ public:
   // which will learn new clauses as explained below:
   // In case of failed assumptions will provide a core negated
   // as a clause through the proof tracer interface.
-  // With a failing contraint these can be multiple clauses.
+  // With a failing constraint these can be multiple clauses.
   // Then it will trigger a conclude_unsat event with the id(s)
   // of the newly learnt clauses or the id of the global conflict.
   //
@@ -1119,8 +1123,9 @@ public:
   virtual void learn (int lit) = 0;
 };
 
-// Connected listener gets notified whenever the truth value of a variable is
-// fixed (for example during inprocessing or due to some derived unit clauses).
+// Connected listener gets notified whenever the truth value of a variable
+// is fixed (for example during inprocessing or due to some derived unit
+// clauses).
 
 class FixedAssignmentListener {
 public:
@@ -1128,7 +1133,6 @@ public:
 
   virtual void notify_fixed_assignment (int) = 0;
 };
-
 
 /*------------------------------------------------------------------------*/
 
@@ -1140,8 +1144,9 @@ class ExternalPropagator {
 
 public:
   bool is_lazy = false; // lazy propagator only checks complete assignments
-  bool are_reasons_forgettable = false; // Reason external clauses can be deleted
-  
+  bool are_reasons_forgettable =
+      false; // Reason external clauses can be deleted
+
   virtual ~ExternalPropagator () {}
 
   // Notify the propagator about assignments to observed variables.
@@ -1149,8 +1154,8 @@ public:
   // the call of propagator callbacks and when a driving clause is leading
   // to an assignment.
   //
-  //virtual void notify_assignment (int lit, bool is_fixed) = 0;
-  virtual void notify_assignment (const std::vector<int>& lits) = 0;
+  // virtual void notify_assignment (int lit, bool is_fixed) = 0;
+  virtual void notify_assignment (const std::vector<int> &lits) = 0;
   virtual void notify_new_decision_level () = 0;
   virtual void notify_backtrack (size_t new_level) = 0;
 
@@ -1177,8 +1182,8 @@ public:
   // added literal-by-literal closed with a 0. Further, the clause must
   // contain the propagated literal.
   //
-  // The clause will be learned as an Irredundant Non-Forgettable Clause (see
-  // below at 'cb_has_external_clause' more details about it).
+  // The clause will be learned as an Irredundant Non-Forgettable Clause
+  // (see below at 'cb_has_external_clause' more details about it).
   //
   virtual int cb_add_reason_clause_lit (int propagated_lit) {
     (void) propagated_lit;
@@ -1203,16 +1208,16 @@ public:
   // clause.
   //
   // The external propagator indicates that there is a clause to add.
-  // The parameter of the function allows the user to indicate that how 
+  // The parameter of the function allows the user to indicate that how
   // 'forgettable' is the external clause. Forgettable clauses are allowed
   // to be removed by the SAT solver during clause database reduction.
   // However, it is up to the solver to decide when actually the clause is
   // deleted. For example, unit clauses, even forgettable ones, will not be
-  // deleted. In case the clause is not 'forgettable' (the parameter is false),
-  // the solver considers the clause to be irredundant.
+  // deleted. In case the clause is not 'forgettable' (the parameter is
+  // false), the solver considers the clause to be irredundant.
   //
-  // In case the solver produces incremental proofs, these external clauses 
-  // are added to the proof during solving at real-time, i.e., the proof 
+  // In case the solver produces incremental proofs, these external clauses
+  // are added to the proof during solving at real-time, i.e., the proof
   // checker can ignore them until that point (so added as input clause, but
   // input after the query line).
   //
@@ -1224,7 +1229,7 @@ public:
   // are performed upon their addition. This will be changed in later
   // versions probably.
   //
-  virtual bool cb_has_external_clause (bool& is_forgettable) = 0;
+  virtual bool cb_has_external_clause (bool &is_forgettable) = 0;
 
   // The actual function called to add the external clause.
   //
