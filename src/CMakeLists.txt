@@ -29,7 +29,7 @@ set(SOURCES
         # B
         backtrack.cpp backward.cpp bins.cpp block.cpp
         # C
-        cadical.cpp ccadical.cpp checker.cpp clause.cpp collect.cpp compact.cpp
+        ccadical.cpp checker.cpp clause.cpp collect.cpp compact.cpp
         condition.cpp contract.cpp config.cpp cover.cpp constrain.cpp
         # D
         decide.cpp decompose.cpp deduplicate.cpp drattracer.cpp
